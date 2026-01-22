@@ -1,16 +1,25 @@
 #!/bin/bash
-echo "--- Fuld installation af Plexamp & UI ---"
+echo "--- Renser systemet og installerer korrekt Node v20 ---"
 
-# 1. Oprydning og Node v20 installation
-apt-get remove -y nodejs && apt-get autoremove -y
+# 1. Fjern Node v25 og alle rester
+apt-get purge -y nodejs
+apt-get autoremove -y
+rm -rf /usr/local/bin/node /usr/local/bin/npm /etc/apt/sources.list.d/nodesource.list
+
+# 2. Installer de nødvendige værktøjer (bzip2 er vigtig!)
+apt-get update
+apt-get install -y bzip2 git curl chromium-browser unclutter
+
+# 3. Installer Node.js v20 korrekt
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-apt-get install -y nodejs bzip2 git chromium-browser
+apt-get install -y nodejs
 
-# 2. Udpak Plexamp
+# 4. Udpak Plexamp (nu virker det fordi bzip2 er installeret)
+echo "Udpakker Plexamp..."
 mkdir -p plexamp-run
 tar -xvf Plexamp-Linux-headless-v4.10.1.tar.bz2 -C plexamp-run --strip-components=1
 
-# 3. Opsæt Services (Plexamp + UI Server)
+# 5. Opsæt Services
 cp plexamp.service /etc/systemd/system/
 cat <<EOF > /etc/systemd/system/plexamp-ui.service
 [Unit]
@@ -29,4 +38,5 @@ EOF
 systemctl daemon-reload
 systemctl enable plexamp plexamp-ui
 
-echo "Setup færdig! Husk at logge ind i Plexamp før du genstarter."
+echo "--- Setup færdig! ---"
+echo "Kør nu: cd plexamp-run && node js/index.js"
