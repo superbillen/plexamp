@@ -8,7 +8,7 @@ rm -rf /usr/local/bin/node /usr/local/bin/npm /etc/apt/sources.list.d/nodesource
 
 # 2. Installer de nødvendige værktøjer (bzip2 er vigtig!)
 apt-get update
-apt-get install -y bzip2 git curl chromium-browser unclutter
+apt-get install -y bzip2 git curl chromium unclutter
 
 # 3. Installer Node.js v20 korrekt
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
