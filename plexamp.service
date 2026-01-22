@@ -1,0 +1,14 @@
+[Unit]
+Description=Plexamp Headless
+After=network.target sound.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/plexamp/plexamp
+ExecStart=/usr/bin/node js/index.js
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

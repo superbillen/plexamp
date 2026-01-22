@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+</head>
+<body>
+    <div id="clock">00:00</div>
+    <div id="player" style="display:none;">
+        <img id="cover" src="">
+        <div id="info">
+            <h1 id="title"></h1>
+            <h2 id="artist"></h2>
+            <p id="tech"></p>
+        </div>
+    </div>
+
+    <script>
+        async function updateStatus() {
+            try {
+                // Vi henter data fra din lokale Plexamp
+                const response = await fetch('http://localhost:32500/state');
+                const data = await response.json();
+
+                if (data.state === 'playing') {
+                    document.getElementById('clock').style.display = 'none';
+                    document.getElementById('player').style.display = 'block';
+                    document.getElementById('cover').src = 'http://localhost:32500/artwork';
+                    document.getElementById('title').innerText = data.item.title;
+                    document.getElementById('artist').innerText = data.item.artist;
+                    document.getElementById('tech').innerText = `${data.item.codec.toUpperCase()} • ${data.item.sampleRate/1000}kHz`;
+                } else {
+                    document.getElementById('clock').style.display = 'block';
+                    document.getElementById('player').style.display = 'none';
+                }
+            } catch (e) {
+                console.log("Venter på Plexamp...");
+            }
+        }
+
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').innerText = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+        }
+
+        setInterval(updateStatus, 2000);
+        setInterval(updateClock, 1000);
+        updateClock();
+    </script>
+</body>
+</html>

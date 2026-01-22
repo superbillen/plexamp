@@ -1,0 +1,18 @@
+body {
+    background: black;
+    color: white;
+    font-family: sans-serif;
+    margin: 0;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+#clock { font-size: 150px; font-weight: bold; }
+#player { text-align: center; width: 100%; }
+#cover { width: 350px; height: 350px; border-radius: 10px; box-shadow: 0 0 20px rgba(255,255,255,0.2); }
+#info { margin-top: 20px; }
+h1 { font-size: 24px; margin: 5px 0; }
+h2 { font-size: 18px; color: #888; }
+#tech { font-family: monospace; color: #f0ad4e; font-size: 14px; }
