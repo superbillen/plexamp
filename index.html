@@ -5,42 +5,14 @@
     <style>
         body { margin: 0; padding: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
         
-        /* Ur Design */
-        #clock-container { 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            height: 100vh; 
-            font-size: 25vw; 
-            font-weight: bold; 
-            color: #555; 
-        }
+        /* UR */
+        #clock-container { display: flex; justify-content: center; align-items: center; height: 100vh; font-size: 25vw; font-weight: bold; color: #555; }
 
-        /* Musik Design */
+        /* MUSIK */
         #player-container { display: none; height: 100vh; width: 100vw; position: relative; }
-        
-        #bg-image { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            background-size: cover; background-position: center; 
-            filter: blur(30px) brightness(0.4); 
-            z-index: 1; 
-        }
-        
-        #content { 
-            position: relative; z-index: 2; 
-            display: flex; flex-direction: column; 
-            align-items: center; justify-content: center; 
-            height: 100%; text-align: center; 
-        }
-        
-        #album-art { 
-            width: 55vh; height: 55vh; 
-            border-radius: 15px; 
-            box-shadow: 0 10px 40px rgba(0,0,0,0.6); 
-            margin-bottom: 30px; 
-            object-fit: cover;
-        }
-        
+        #bg-image { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-size: cover; background-position: center; filter: blur(30px) brightness(0.4); z-index: 1; }
+        #content { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; }
+        #album-art { width: 55vh; height: 55vh; border-radius: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); margin-bottom: 30px; object-fit: cover; }
         h1 { margin: 10px 0 5px; font-size: 5vh; max-width: 90%; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
         h2 { margin: 0; font-size: 3vh; color: #ddd; max-width: 90%; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
     </style>
@@ -53,13 +25,18 @@
         <div id="bg-image"></div>
         <div id="content">
             <img id="album-art" src="" />
-            <h1 id="track-title">Titel</h1>
-            <h2 id="artist-name">Kunstner</h2>
+            <h1 id="track-title">Loading...</h1>
+            <h2 id="artist-name">...</h2>
         </div>
     </div>
 
     <script>
-        // Opdater Uret
+        // DIN NØGLE (Fra billedet)
+        const token = "S6xbNwzPB_snxszfstiyG";
+        const plexIp = "127.0.0.1";
+        const plexPort = "32500";
+
+        // Opdater Ur
         function updateClock() {
             const now = new Date();
             const hours = String(now.getHours()).padStart(2, '0');
@@ -69,42 +46,57 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        // Tjek Musik
+        // Opdater Musik (Direkte til port 32500)
         async function checkStatus() {
             try {
-                const response = await fetch('/state');
-                const data = await response.json();
+                // Vi henter data direkte fra Plexamp med token
+                const url = `http://${plexIp}:${plexPort}/player/timeline/poll?wait=0&X-Plex-Token=${token}`;
+                const response = await fetch(url);
+                const data = await response.text(); // Plexamp sender ofte XML her
                 
                 const clockDiv = document.getElementById('clock-container');
                 const playerDiv = document.getElementById('player-container');
 
-                if (data.state === 'playing') {
-                    // Vis Musik
+                // Simpel sjek: Står der "playing" i teksten?
+                if (data.includes('state="playing"') || data.includes('"state":"playing"')) {
                     clockDiv.style.display = 'none';
                     playerDiv.style.display = 'block';
+
+                    // Find info med tekst-søgning (Regex)
+                    const titleMatch = data.match(/title="([^"]+)"/) || data.match(/"title":"([^"]+)"/);
+                    const artistMatch = data.match(/grandparentTitle="([^"]+)"/) || data.match(/parentTitle="([^"]+)"/);
+                    const thumbMatch = data.match(/thumb="([^"]+)"/) || data.match(/"thumb":"([^"]+)"/);
+
+                    if (titleMatch) document.getElementById('track-title').innerText = titleMatch[1];
+                    if (artistMatch) document.getElementById('artist-name').innerText = artistMatch[1];
                     
-                    document.getElementById('track-title').innerText = data.title;
-                    document.getElementById('artist-name').innerText = data.artist;
-                    
-                    if (data.thumb) {
-                        const imgUrl = '/proxy' + data.thumb;
+                    if (thumbMatch) {
+                        // Vi skal også bruge token for at hente billedet!
+                        const thumbPath = thumbMatch[1];
+                        const imgUrl = `http://${plexIp}:${plexPort}${thumbPath}?X-Plex-Token=${token}`;
+                        
                         const imgTag = document.getElementById('album-art');
-                        if (!imgTag.src.includes(imgUrl)) {
+                        if (imgTag.src !== imgUrl) {
                             imgTag.src = imgUrl;
                             document.getElementById('bg-image').style.backgroundImage = `url('${imgUrl}')`;
                         }
                     }
                 } else {
-                    // Vis Ur
+                    // Hvis pause/stop
                     clockDiv.style.display = 'flex';
                     playerDiv.style.display = 'none';
                 }
             } catch (e) {
-                // Fejl: Vis ur
+                console.log("Fejl eller ingen forbindelse: " + e);
+                // Ved fejl viser vi bare uret
+                document.getElementById('clock-container').style.display = 'flex';
+                document.getElementById('player-container').style.display = 'none';
             }
         }
-        
+
+        // Tjek hvert sekund
         setInterval(checkStatus, 1000);
+        checkStatus();
     </script>
 </body>
 </html>
