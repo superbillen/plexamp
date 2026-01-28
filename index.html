@@ -1,51 +1,110 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <link rel="stylesheet" href="style.css">
     <meta charset="UTF-8">
+    <style>
+        body { margin: 0; padding: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
+        
+        /* Ur Design */
+        #clock-container { 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            font-size: 25vw; 
+            font-weight: bold; 
+            color: #555; 
+        }
+
+        /* Musik Design */
+        #player-container { display: none; height: 100vh; width: 100vw; position: relative; }
+        
+        #bg-image { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background-size: cover; background-position: center; 
+            filter: blur(30px) brightness(0.4); 
+            z-index: 1; 
+        }
+        
+        #content { 
+            position: relative; z-index: 2; 
+            display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; 
+            height: 100%; text-align: center; 
+        }
+        
+        #album-art { 
+            width: 55vh; height: 55vh; 
+            border-radius: 15px; 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6); 
+            margin-bottom: 30px; 
+            object-fit: cover;
+        }
+        
+        h1 { margin: 10px 0 5px; font-size: 5vh; max-width: 90%; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        h2 { margin: 0; font-size: 3vh; color: #ddd; max-width: 90%; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+    </style>
 </head>
 <body>
-    <div id="clock">00:00</div>
-    <div id="player" style="display:none;">
-        <img id="cover" src="">
-        <div id="info">
-            <h1 id="title"></h1>
-            <h2 id="artist"></h2>
-            <p id="tech"></p>
+
+    <div id="clock-container">00:00</div>
+
+    <div id="player-container">
+        <div id="bg-image"></div>
+        <div id="content">
+            <img id="album-art" src="" />
+            <h1 id="track-title">Titel</h1>
+            <h2 id="artist-name">Kunstner</h2>
         </div>
     </div>
 
     <script>
-        async function updateStatus() {
-            try {
-                // Vi henter data fra din lokale Plexamp
-                const response = await fetch('http://localhost:32500/state');
-                const data = await response.json();
-
-                if (data.state === 'playing') {
-                    document.getElementById('clock').style.display = 'none';
-                    document.getElementById('player').style.display = 'block';
-                    document.getElementById('cover').src = 'http://localhost:32500/artwork';
-                    document.getElementById('title').innerText = data.item.title;
-                    document.getElementById('artist').innerText = data.item.artist;
-                    document.getElementById('tech').innerText = `${data.item.codec.toUpperCase()} • ${data.item.sampleRate/1000}kHz`;
-                } else {
-                    document.getElementById('clock').style.display = 'block';
-                    document.getElementById('player').style.display = 'none';
-                }
-            } catch (e) {
-                console.log("Venter på Plexamp...");
-            }
-        }
-
+        // Opdater Uret
         function updateClock() {
             const now = new Date();
-            document.getElementById('clock').innerText = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('clock-container').innerText = `${hours}:${minutes}`;
         }
-
-        setInterval(updateStatus, 2000);
         setInterval(updateClock, 1000);
         updateClock();
+
+        // Tjek Musik
+        async function checkStatus() {
+            try {
+                const response = await fetch('/state');
+                const data = await response.json();
+                
+                const clockDiv = document.getElementById('clock-container');
+                const playerDiv = document.getElementById('player-container');
+
+                if (data.state === 'playing') {
+                    // Vis Musik
+                    clockDiv.style.display = 'none';
+                    playerDiv.style.display = 'block';
+                    
+                    document.getElementById('track-title').innerText = data.title;
+                    document.getElementById('artist-name').innerText = data.artist;
+                    
+                    if (data.thumb) {
+                        const imgUrl = '/proxy' + data.thumb;
+                        const imgTag = document.getElementById('album-art');
+                        if (!imgTag.src.includes(imgUrl)) {
+                            imgTag.src = imgUrl;
+                            document.getElementById('bg-image').style.backgroundImage = `url('${imgUrl}')`;
+                        }
+                    }
+                } else {
+                    // Vis Ur
+                    clockDiv.style.display = 'flex';
+                    playerDiv.style.display = 'none';
+                }
+            } catch (e) {
+                // Fejl: Vis ur
+            }
+        }
+        
+        setInterval(checkStatus, 1000);
     </script>
 </body>
 </html>
