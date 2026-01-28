@@ -2,9 +2,12 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
+// --- INDSTILLINGER ---
 const PORT = 8080;
 const PLEXAMP_IP = '127.0.0.1';
 const PLEXAMP_PORT = 32500;
+// Her er din nøgle, som vi fandt i filen:
+const PLEX_TOKEN = 'S6xbNwzPB_snxszfstiyG';
 
 // Hent status fra Plexamp
 const getPlexampStatus = (callback) => {
@@ -13,49 +16,40 @@ const getPlexampStatus = (callback) => {
         port: PLEXAMP_PORT,
         path: '/player/timeline/poll?wait=0',
         method: 'GET',
-        headers: { 'Accept': 'application/json' }
+        headers: { 
+            'Accept': 'application/json',
+            'X-Plex-Token': PLEX_TOKEN 
+        }
     };
 
     const req = http.request(options, (res) => {
         let data = '';
         res.on('data', chunk => data += chunk);
         res.on('end', () => {
-            // --- HER VAR FEJLEN FØR ---
-            // Nu tjekker vi BÅDE for JSON format og XML format
-            // Vi gør teksten til små bogstaver, så vi ikke misser noget
+            // Gør teksten til små bogstaver for nem søgning
             const lowerData = data.toLowerCase();
             
-            // Er den playing? (Meget bred søgning)
+            // TJEK: Er musikken i gang?
+            // Vi tjekker bredt efter "playing" i både JSON og XML format
             const isPlaying = lowerData.includes('"state":"playing"') || lowerData.includes('state="playing"');
 
-            // Find titlen (Prøv JSON måde først, ellers Regex)
-            let title = 'Ukendt';
-            let artist = '';
-            let thumb = '';
-
-            try {
-                // Prøv at læse det som rigtig data
-                const json = JSON.parse(data);
-                const entry = json.MediaContainer.Timeline[0];
-                title = entry.title;
-                artist = entry.grandparentTitle || entry.parentTitle;
-                thumb = entry.thumb;
-            } catch (e) {
-                // Hvis det fejler, brug "grov" tekst-søgning
-                const titleMatch = data.match(/title="([^"]+)"/);
-                const artistMatch = data.match(/grandparentTitle="([^"]+)"/);
-                const thumbMatch = data.match(/thumb="([^"]+)"/);
-                
-                if (titleMatch) title = titleMatch[1];
-                if (artistMatch) artist = artistMatch[1];
-                if (thumbMatch) thumb = thumbMatch[1];
-            }
+            // HENT INFO: Titel, Kunstner, Billede
+            // Vi bruger Regex (tekst-søgning) da det virker på både XML og JSON
+            // Det er mere robust end JSON.parse hvis Plexamp svarer mærkeligt
+            
+            // Titel
+            const titleMatch = data.match(/title="([^"]+)"/) || data.match(/"title":"([^"]+)"/);
+            // Kunstner (kan hedde grandparentTitle eller parentTitle)
+            const artistMatch = data.match(/grandparentTitle="([^"]+)"/) || data.match(/parentTitle="([^"]+)"/) || 
+                              data.match(/"grandparentTitle":"([^"]+)"/) || data.match(/"parentTitle":"([^"]+)"/);
+            // Billede (Thumb)
+            const thumbMatch = data.match(/thumb="([^"]+)"/) || data.match(/"thumb":"([^"]+)"/);
 
             const result = {
                 state: isPlaying ? 'playing' : 'stopped',
-                title: title || 'Ukendt',
-                artist: artist || '',
-                thumb: thumb || ''
+                title: titleMatch ? titleMatch[1] : 'Ukendt',
+                artist: artistMatch ? artistMatch[1] : '',
+                thumb: thumbMatch ? thumbMatch[1] : ''
             };
             callback(null, result);
         });
@@ -69,7 +63,7 @@ const getPlexampStatus = (callback) => {
 };
 
 const server = http.createServer((req, res) => {
-    // API: Status
+    // API: Send status til skærmen
     if (req.url === '/state') {
         getPlexampStatus((err, data) => {
             res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
@@ -78,14 +72,15 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    // Proxy: Billeder
+    // Proxy: Hent billeder (Sender nøglen med, så vi får lov at se billedet)
     if (req.url.startsWith('/proxy/')) {
         const thumbPath = req.url.replace('/proxy', '');
         const options = {
             hostname: PLEXAMP_IP,
             port: PLEXAMP_PORT,
             path: thumbPath,
-            method: 'GET'
+            method: 'GET',
+            headers: { 'X-Plex-Token': PLEX_TOKEN }
         };
         const proxyReq = http.request(options, (proxyRes) => {
             res.writeHead(proxyRes.statusCode, proxyRes.headers);
@@ -96,7 +91,7 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    // HTML Filer
+    // Vis hjemmesiden
     let filePath = '.' + req.url;
     if (filePath === './') filePath = './index.html';
     
